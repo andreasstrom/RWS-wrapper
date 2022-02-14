@@ -1,0 +1,10 @@
+LICENSE
+README.md
+pyproject.toml
+setup.cfg
+src/rwswrap/RWS.py
+src/rwswrap/__init__.py
+src/rwswrap.egg-info/PKG-INFO
+src/rwswrap.egg-info/SOURCES.txt
+src/rwswrap.egg-info/dependency_links.txt
+src/rwswrap.egg-info/top_level.txt
