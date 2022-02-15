@@ -281,12 +281,14 @@ class RWS:
         """
         Resets program pointer to main procedure in RAPID and starts RAPID execution.
         mastership:implicit very important
-        Cannot run with mastership. weird.
+        Cannot run execution/start with mastership, but mastership is requred for /resetpp. weird.
         """
+        self.toggle_mastership(1)
+        self.reset_pp()
+        self.toggle_mastership(0)
         params = (
             ('mastership', 'implicit'),
         )
-        self.reset_pp()
         payload = {
             'regain': 'continue',
             'execmode': 'continue',
