@@ -9,7 +9,7 @@ class RWS:
     "For the RW 7.0 release, RWS has introduced several breaking changes to include the following requirements" -> Updates
     """
 
-    def __init__(self, base_url, username='admin', password='robotics', headers = {'Content-Type':'application/x-www-form-urlencoded;v=2.0'}, headers2 = {'accept': 'application/hal+json;v=2.0'}, verify = False, task = 'T_ROB1', module = 'mainModule'):
+    def __init__(self, base_url, username='admin', password='robotics', headers = {'Content-Type':'application/x-www-form-urlencoded;v=2.0'}, headers2 = {'accept': 'application/hal+json;v=2.0'}, verify = False, task = 'T_ROB1', module = 'arrs_mod'):
         self.base_url = base_url
         self.username = username
         self.password = password
@@ -133,18 +133,20 @@ class RWS:
         resp = self.session.post(f'{self.base_url}/rw/rapid/tasks/{self.task}/unloadmod', headers=self.headers, data={'module': name}, auth=self.session.auth, verify=self.verify)
         return resp
 
-    def set_rapid_variable(self, var, value, initval='false'):
+    def set_rapid_variable(self, var, value, initval='true', module='arrs_mod'):
         """
         Sets the value of any RAPID variable.
         Unless the variable is of type 'num', 'value' has to be a string.
         Actually works somehow
         """
-        self.toggle_mastership(1)
+        #print(self.toggle_motors(0))
+        #print(self.toggle_mastership(1))
         params = (
             ('initval', initval),
         )
-        payload = {'value': value}
-        resp = self.session.post(f"{self.base_url}/rw/rapid/symbol/RAPID/{self.task}/{self.module}/{var}/data", verify=self.verify, data=payload, headers=self.headers, auth=self.session.auth, params=params)
+        payload = {'value': value if isinstance(value, str) else str(value)}
+        self.toggle_mastership(1)
+        resp = self.session.post(f"{self.base_url}/rw/rapid/symbol/RAPID/{self.task}/{module}/{var}/data", verify=self.verify, data=payload, headers=self.headers, auth=self.session.auth, params=params)
         self.toggle_mastership(0)
         return resp
 
@@ -186,7 +188,9 @@ class RWS:
         """
         Resets the program pointer to main procedure in RAPID.
         """
+        self.toggle_mastership(1)
         resp = self.session.post(self.base_url + '/rw/rapid/execution/resetpp', auth=self.session.auth, verify=self.verify, headers=self.headers)
+        self.toggle_mastership(0)
         return resp
 
     def toggle_mastership(self, tog = 0):
@@ -207,24 +211,13 @@ class RWS:
         resp = self.session.post(self.base_url + "/rw/panel/ctrl-state", data=payload, headers=self.headers, auth=self.session.auth, verify=self.verify)
         return resp
 
-    def start_RAPID_prod(self):
-        """
-        Semi-broken & Unnecessary
-        TODO: remove?
-        """
-        self.reset_pp()
-        resp = self.session.post(self.base_url + "/rw/rapid/execution/startprodentry",  headers=self.headers, auth=self.session.auth, verify=self.verify)
-        return resp
-
     def start_RAPID(self):
         """
         Resets program pointer to main procedure in RAPID and starts RAPID execution.
         mastership:implicit very important
         Cannot run execution/start with mastership, but mastership is requred for /resetpp. weird.
         """
-        self.toggle_mastership(1)
         self.reset_pp()
-        self.toggle_mastership(0)
         params = (
             ('mastership', 'implicit'),
         )
@@ -234,24 +227,34 @@ class RWS:
             'cycle': 'once',
             'condition': 'none',
             'stopatbp': 'disabled',
-            'alltaskbytsp': 'false'
+            'alltaskbytsp': 'true'
         }
+        #self.toggle_motors(1)
         resp = self.session.post(self.base_url + "/rw/rapid/execution/start", data=payload, headers=self.headers, auth=self.session.auth, verify=self.verify, params=params)
+        print(f"disconnecting client, status code: {self.disconnect_user().status_code}")
         return resp
 
     def stop_RAPID(self):
         """
-        NOT UPDATED, doesn't work
         Stops RAPID execution.
-        TODO: update to new RWS
         """
 
-        payload = {'stopmode': 'stop', 'usetsp': 'normal'}
-        resp = self.session.post(self.base_url + "/rw/rapid/execution?action=stop", data=payload)
-        if resp.status_code == 204:
-            print('RAPID execution stopped')
-        else:
-            print('Could not stop RAPID execution')
+        data = {
+        'stopmode': 'stop'
+        }
+
+        resp = self.session.post(f'{self.base_url}/rw/rapid/execution/stop', headers=self.headers, data=data, auth=self.session.auth, verify=self.verify)
+        return resp
+
+    def disconnect_user(self):
+        data = {
+            'client-type': '3'
+        }
+
+        resp = self.session.post(f"{self.base_url}/rw/infostream/disconnectclient", data=data, headers=self.headers, auth=self.session.auth, verify=self.verify)
+        print(f"disconnectclient: {resp}")
+        resp = self.session.post(f"{self.base_url}/rw/_istream/streamdisconnect", data=data, headers=self.headers, auth=self.session.auth, verify=self.verify)
+        return resp
 
     def get_exec_state(self, api=False):
         """Gets the execution state of the controller.
@@ -269,3 +272,13 @@ class RWS:
         """Checks the execution state of the controller and
         """
         return True if self.get_exec_state() == "running" else False
+    
+    def set_io_signal(self, IODevice = 'EN_Internal_Device', tog = 1, startbyte = '0', dataMask = 255):
+        """Sets an IO signal in the controller
+        """
+        signalBits = ['01111111', '11111111'] #close / open
+
+        payload = {'startbyte': startbyte, 'signaldata': signalBits[tog], 'datamask': dataMask}
+
+        resp = self.session.post(self.base_url + "/rw/iosystem/devices/127.0.0.1/" + IODevice + "/set-inputdata", data=payload, headers=self.headers, verify=self.verify)
+        return resp
