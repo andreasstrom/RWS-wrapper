@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: rwswrap
-Version: 0.0.5
+Version: 0.1.0
 Summary: A small wrapper for ABB's RobotWebServices API, for RobotWare 7
 Home-page: https://github.com/andreasstrom/RWS-wrapper
 Author: Andreas Ström
